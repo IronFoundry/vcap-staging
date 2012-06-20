@@ -37,5 +37,11 @@ runtimes:
       executable: "ruby"
       environment:
         bundle_gemfile:
+  - "clr40":
+      version: "4.0.30319"
+      description: ".NET CLR 4.0"
+  - "clr20":
+      version: "2.0.50727"
+      description: ".NET CLR 2.0"
 
 # vim: filetype=yaml

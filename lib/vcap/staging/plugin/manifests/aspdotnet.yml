@@ -1,0 +1,23 @@
+---
+name: "aspdotnet"
+runtimes:
+  - "aspdotnet40":
+      version: "4.0.30319"
+      description: "ASP.NET 4.0"
+  - "clr40":
+      version: "4.0.30319"
+      description: ".NET CLR 4.0"
+      default: true       
+  - "clr20":
+      version: "2.0.50727"
+      description: ".NET CLR 2.0"
+app_servers:
+  - "iis":
+      description: "Internet Information Services"
+      executable: false
+      default: true
+detection:
+  - "web.config": true # web.config must be present
+staged_services:
+
+# vim: filetype=yaml
