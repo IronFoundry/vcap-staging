@@ -20,10 +20,11 @@ module GemfileSupport
     return if packaged_with_bundler_in_deployment_mode?
 
     safe_env = [ "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY", "C_INCLUDE_PATH", "LIBRARY_PATH" ].map { |e| "#{e}='#{ENV[e]}'" }.join(" ")
-    path     = [ "/bin", "/usr/bin", "/sbin", "/usr/sbin"]
-    path.unshift(File.dirname(ruby)) if ruby[0] == '/'
 
-    safe_env << " PATH='%s'" % [ path.uniq.join(":") ]
+    path = ENV["PATH"] || "/bin:/usr/bin:/sbin:/usr/sbin"
+    path = File.dirname(ruby) + ":" + path if ruby[0] == "/"
+    safe_env << " PATH='#{path}'"
+
     safe_env << " LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8"
     base_dir = StagingPlugin.platform_config["cache"]
 
@@ -36,8 +37,8 @@ module GemfileSupport
     @task.install_bundler
     @task.remove_gems_cached_in_app
 
-    @rack = @task.bundles_rack?
-    @thin = @task.bundles_thin?
+    @rack = @task.bundles_gem?("rack")
+    @thin = @task.bundles_gem?("thin")
 
     write_bundle_config
   end
@@ -68,12 +69,12 @@ module GemfileSupport
     File.directory?(File.join(source_directory, 'vendor', 'bundle', library_version))
   end
 
-  def install_local_gem(gem_dir,gem_filename,gem_name,gem_version)
-    @task.install_local_gem gem_dir,gem_filename,gem_name,gem_version
+  def install_local_gem(gem_dir, gem_filename, gem_name, gem_version)
+    @task.install_local_gem(gem_dir, gem_filename, gem_name, gem_version)
   end
 
   def install_gems(gems)
-    @task.install_gems gems
+    @task.install_gems(gems)
   end
 
   # This sets a relative path to the bundle directory, so nothing is confused

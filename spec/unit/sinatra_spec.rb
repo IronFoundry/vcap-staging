@@ -13,8 +13,7 @@ describe "A simple Sinatra app being staged" do
       script_body = File.read(start_script)
       script_body.should == <<-EXPECTED
 #!/bin/bash
-export RACK_ENV="production"
-export RAILS_ENV="production"
+export RACK_ENV="${RACK_ENV:-production}"
 export RUBYOPT="-rubygems -I$PWD/ruby -rstdsync"
 unset BUNDLE_GEMFILE
 mkdir ruby
@@ -25,6 +24,15 @@ STARTED=$!
 echo "$STARTED" >> ../run.pid
 wait $STARTED
       EXPECTED
+    end
+  end
+
+  it "contains a log indicating disabled autoconfig" do
+    stage :sinatra do |staged_dir|
+      executable = '%VCAP_LOCAL_RUNTIME%'
+      staging_log = File.join(staged_dir, 'logs','staging.log')
+      log_body = File.read(staging_log)
+      log_body.should =~ /Auto-reconfiguration disabled because app does not use Bundler./
     end
   end
 
@@ -44,8 +52,7 @@ wait $STARTED
 export GEM_HOME="$PWD/app/rubygems/ruby/1.8"
 export GEM_PATH="$PWD/app/rubygems/ruby/1.8"
 export PATH="$PWD/app/rubygems/ruby/1.8/bin:$PATH"
-export RACK_ENV="production"
-export RAILS_ENV="production"
+export RACK_ENV="${RACK_ENV:-production}"
 export RUBYOPT="-I$PWD/ruby -I$PWD/app/rubygems/ruby/1.8/gems/cf-autoconfig-#{AUTO_CONFIG_GEM_VERSION}/lib -rstdsync"
 unset BUNDLE_GEMFILE
 mkdir ruby

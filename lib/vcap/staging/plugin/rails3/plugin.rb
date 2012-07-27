@@ -26,6 +26,17 @@ class Rails3Plugin < StagingPlugin
     "./rubygems/ruby/#{library_version}/bin"
   end
 
+  def migration_enabled?
+    cf_config_file =  destination_directory + '/app/config/cloudfoundry.yml'
+    if File.exists? cf_config_file
+      config = YAML.load_file(cf_config_file)
+      if config['dbmigrate'] == false
+        return false
+      end
+    end
+    true
+  end
+
   def migration_command
     if uses_bundler?
       "#{local_runtime} #{gem_bin_dir}/bundle exec #{local_runtime} #{gem_bin_dir}/rake db:migrate --trace"
@@ -57,7 +68,7 @@ class Rails3Plugin < StagingPlugin
         install_autoconfig_gem
         setup_autoconfig_script
       end
-      create_asset_plugin if disables_static_assets?
+      create_asset_plugin
       create_startup_script
       create_stop_script
     end
@@ -91,13 +102,16 @@ class Rails3Plugin < StagingPlugin
     end
     vars['RUBYOPT'] = '-I$PWD/ruby -rstdsync'
     vars['DISABLE_AUTO_CONFIG'] = 'mysql:postgresql'
+    vars['RAILS_ENV'] = '${RAILS_ENV:-production}'
     generate_startup_script(vars) do
       cmds = ['mkdir ruby', 'echo "\$stdout.sync = true" >> ./ruby/stdsync.rb']
-      cmds << <<-MIGRATE
+      if migration_enabled?
+        cmds << <<-MIGRATE
 if [ -f "$PWD/app/config/database.yml" ] ; then
   cd app && #{migration_command} >>../logs/migration.log 2>> ../logs/migration.log && cd ..;
 fi
-      MIGRATE
+        MIGRATE
+      end
       cmds << <<-RUBY_CONSOLE
 if [ -n "$VCAP_CONSOLE_PORT" ]; then
   cd app
@@ -129,18 +143,9 @@ fi
     cmds.join("\n")
   end
 
+  # Generates a trivial Rails plugin that re-enables static asset serving at boot, as
   # Rails applications often disable asset serving in production mode, and delegate that to
-  # nginx or similar. We re-enable it with a plugin as needed.
-  def disables_static_assets?
-    environment = ''
-    prod_env = File.join(destination_directory, 'app', 'config', 'environments', 'production.rb')
-    if File.exists?(prod_env)
-      environment = File.read(prod_env)
-    end
-    environment =~ /serve_static_assets\s*=\s*(false|nil)/
-  end
-
-  # Generates a trivial Rails plugin that re-enables static asset serving at boot.
+  # nginx or similar
   def create_asset_plugin
     init_code = <<-BODY
 Rails.application.config.serve_static_assets = true
