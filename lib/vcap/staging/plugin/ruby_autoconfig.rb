@@ -2,10 +2,10 @@ module RubyAutoconfig
   include GemfileSupport
 
   AUTO_CONFIG_GEM_NAME= 'cf-autoconfig'
-  AUTO_CONFIG_GEM_VERSION= '0.0.3'
+  AUTO_CONFIG_GEM_VERSION= '0.0.4'
   #TODO Ideally we get transitive deps from cf-autoconfig gem, but this is no easy task
   #w/out downloading them every time
-  AUTO_CONFIG_GEM_DEPS = [ ['cf-runtime', '0.0.1'], ['crack', '0.3.1'] ]
+  AUTO_CONFIG_GEM_DEPS = [ ['cf-runtime', '0.0.2'] ]
 
   def autoconfig_enabled?
     cf_config_file =  destination_directory + '/app/config/cloudfoundry.yml'
@@ -25,8 +25,7 @@ module RubyAutoconfig
   end
 
   def install_autoconfig_gem
-    install_local_gem File.join(File.dirname(__FILE__), 'resources'),"#{AUTO_CONFIG_GEM_NAME}-#{AUTO_CONFIG_GEM_VERSION}.gem",
-      AUTO_CONFIG_GEM_NAME,AUTO_CONFIG_GEM_VERSION
+    install_local_gem File.join(File.dirname(__FILE__), 'resources'),"#{AUTO_CONFIG_GEM_NAME}-#{AUTO_CONFIG_GEM_VERSION}.gem"
     install_gems(AUTO_CONFIG_GEM_DEPS)
     #Add the autoconfig gem to the app's Gemfile
     File.open(destination_directory + '/app/Gemfile', 'a') {
