@@ -1,9 +1,5 @@
 class AspdotnetPlugin < StagingPlugin
 
-  def framework
-    'aspdotnet'
-  end
-
   def stage_application
     Dir.chdir(destination_directory) do
       create_app_directories
