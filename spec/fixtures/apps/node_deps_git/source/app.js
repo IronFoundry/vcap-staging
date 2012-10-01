@@ -1,4 +1,4 @@
-require("colors");
+require("graceful-fs");
 
 var port = process.env.VCAP_APP_PORT || 3000;
 
