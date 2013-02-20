@@ -1,18 +1,17 @@
 require 'bundler'
 
-require "vcap/staging/plugin/shell_helpers"
-require 'vcap/staging/plugin/rails3/database_support'
 require "uuidtools"
 require_relative("buildpack_installer")
+require_relative("rails_support")
 
 class BuildpackPlugin < StagingPlugin
-  include RailsDatabaseSupport
-  include ShellHelpers
+  include RailsSupport
 
   def stage_application
     Dir.chdir(destination_directory) do
       create_app_directories
       copy_source_files
+      FileUtils.chmod_R(0744, app_dir)
       Bundler.with_clean_env do
         build_pack.compile
       end
@@ -23,9 +22,9 @@ class BuildpackPlugin < StagingPlugin
 
   def clone_buildpack(buildpack_url)
     buildpack_path = "#{app_dir}/.buildpacks/#{File.basename(buildpack_url)}"
-    output, ok = run_and_log("git clone #{buildpack_url} #{buildpack_path}")
-    raise "Failed to git clone buildpack:\n#{output}" unless ok
-    BuildpackInstaller.new(Pathname.new(buildpack_path), app_dir, logger)
+    ok = system("git clone #{buildpack_url} #{buildpack_path}")
+    raise "Failed to git clone buildpack" unless ok
+    BuildpackInstaller.new(Pathname.new(buildpack_path), app_dir)
   end
 
   def build_pack
@@ -46,7 +45,7 @@ class BuildpackPlugin < StagingPlugin
 
   def installers
     buildpacks_path.children.map do |buildpack|
-      BuildpackInstaller.new(buildpack, app_dir, logger)
+      BuildpackInstaller.new(buildpack, app_dir)
     end
   end
 
@@ -64,17 +63,9 @@ class BuildpackPlugin < StagingPlugin
   end
 
   def procfile_contents
-    procfile_path = 'Procfile'
+    procfile_path = "#{app_dir}/Procfile"
 
     File.read(procfile_path) if File.exists?(procfile_path)
-  end
-
-  def app_dir
-    destination_directory
-  end
-
-  def change_directory_for_start
-    ""
   end
 
   # TODO - remove this when we have the ability to ssh to a locally-running console
@@ -82,25 +73,12 @@ class BuildpackPlugin < StagingPlugin
     @build_pack.name == "Ruby/Rails"
   end
 
-  def stage_rails_console
-    #Copy cf-rails-console to app
-    cf_rails_console_dir = destination_directory + '/cf-rails-console'
-    FileUtils.mkdir_p(cf_rails_console_dir)
-    FileUtils.cp_r(File.expand_path('../resources/cf-rails-console', __FILE__), destination_directory)
-    #Generate console access file for caldecott access
-    config_file = cf_rails_console_dir + '/.consoleaccess'
-    data = {'username' => UUIDTools::UUID.random_create.to_s,'password' => UUIDTools::UUID.random_create.to_s}
-    File.open(config_file, 'w') do |fh|
-      fh.write(YAML.dump(data))
-    end
-  end
-
   def startup_script
     generate_startup_script(environment_variables) do
       script_content = <<-BASH
 unset GEM_PATH
-if [ -d .profile.d ]; then
-  for i in .profile.d/*.sh; do
+if [ -d app/.profile.d ]; then
+  for i in app/.profile.d/*.sh; do
     if [ -r $i ]; then
       . $i
     fi
@@ -109,17 +87,7 @@ if [ -d .profile.d ]; then
 fi
 env > logs/env.log
 BASH
-
-      if rails_buildpack?
-        script_content += <<-BASH
-if [ -n "$VCAP_CONSOLE_PORT" ]; then
-  bundle exec ruby cf-rails-console/rails_console.rb >> logs/console.log 2>> logs/console.log &
-  CONSOLE_STARTED=$!
-  echo "$CONSOLE_STARTED" >> console.pid
-fi
-        BASH
-      end
-
+      script_content += console_start_script if rails_buildpack?
       script_content
     end
   end
@@ -131,8 +99,9 @@ fi
   def environment_variables
     vars = release_info['config_vars'] || {}
     vars.each { |k, v| vars[k] = "${#{k}:-#{v}}" }
+    vars["HOME"] = "$PWD/app"
     vars["PORT"] = "$VCAP_APP_PORT"
-    vars["DATABASE_URL"] = database_uri if bound_database
+    vars["DATABASE_URL"] = database_uri if rails_buildpack? && bound_database
     vars["MEMORY_LIMIT"] = "#{application_memory}m"
     vars
   end
