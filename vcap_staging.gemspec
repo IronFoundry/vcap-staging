@@ -14,8 +14,12 @@ gemspec = Gem::Specification.new do |s|
   s.add_dependency('nokogiri', '>= 1.4.4')
   s.add_dependency('rake')
   s.add_dependency('yajl-ruby', '>= 0.7.9')
+  s.add_dependency('vcap_logging', '= 0.1.4')
 
-  s.add_dependency('rspec')
+  s.add_development_dependency('rspec')
+  s.add_development_dependency('pry')
+  s.add_development_dependency('pry-remote')
+  s.add_development_dependency('rb-readline')
 
   s.add_dependency('uuidtools', "~> 2.1.2")
 
@@ -23,5 +27,5 @@ gemspec = Gem::Specification.new do |s|
   s.bindir       = 'bin'
   s.require_path = 'lib'
 
-  s.files        = %w(Rakefile) + Dir.glob("lib/**/*")
+  s.files        = %w(Rakefile bin/run_plugin) + Dir.glob("lib/**/*") + Dir.glob("vendor/**/*")
 end
